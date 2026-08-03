@@ -1,14 +1,54 @@
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local running = false
-
+local boxFinished = false
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local guiParent = player:WaitForChild("PlayerGui")
 local OpenBox = ReplicatedStorage.Remotes.OpenBoxClick
+local dragging = false
+local dragStart
+local startPosition
+local runningMusic = false
+local EventShopAction = game:GetService("ReplicatedStorage")
+    .Remotes
+    .EventShopAction
+local Remote = game:GetService("ReplicatedStorage")
+	.Remotes.EndBoxReveal
 
 
+-- Musik Event
+local function StartMusicLoop()
+
+	task.spawn(function()
+
+		while runningMusic do
+
+			EventShopAction:FireServer(
+				"Activate",
+				"MusicTrait"
+			)
+
+			-- warten
+			task.wait(5)
+
+		end
+
+	end)
+
+end
+
+
+-- Box Öffnung
 local function StartBoxClick()
+    boxFinished = false
     task.spawn(function()
         while running do
+        
+            if boxFinished then
+                break
+            end
+
             OpenBox:FireServer()
             task.wait(0.05)
         end
@@ -16,6 +56,13 @@ local function StartBoxClick()
 end
 
 
+-- Boxende überprüfen
+Remote.OnClientEvent:Connect(function()
+	boxFinished = true
+end)
+
+
+-- Autofarm
 local function StartLoop()
     while running do
 
@@ -60,18 +107,189 @@ local function StartLoop()
 end
 
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
 
-    if input.KeyCode == Enum.KeyCode.F then
 
-        running = not running
+-- ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "NeonMenu"
+gui.Parent = guiParent
 
-        if running then
-            print("AUTO START")
-            task.spawn(StartLoop)
-        else
-            print("AUTO STOP")
+
+-- Hauptfenster
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 220, 0, 160)
+main.Position = UDim2.new(0.5, -110, 0.5, -80)
+main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+
+-- Neon Rand
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(0, 255, 255)
+stroke.Thickness = 2
+stroke.Parent = main
+
+
+
+-- Titel
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "MEGA RAMP FOR SLIME"
+title.TextColor3 = Color3.fromRGB(0,255,255)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.Parent = main
+
+-- Anhang
+local credit = Instance.new("TextLabel")
+
+credit.Size = UDim2.new(1, 0, 0, 15)
+credit.Position = UDim2.new(0, 0, 0, 145)
+
+credit.BackgroundTransparency = 1
+credit.Text = "BY DOCDAVE1010"
+
+credit.TextColor3 = Color3.fromRGB(100,100,110)
+credit.TextSize = 10
+credit.Font = Enum.Font.Gotham
+
+credit.Parent = main
+
+
+-- Button Funktion
+local function createToggle(name, y)
+
+	local enabled = false
+
+	local toggle = Instance.new("TextButton")
+
+	toggle.Size = UDim2.new(0,180,0,30)
+	toggle.Position = UDim2.new(0.5,-90,0,y)
+
+	toggle.BackgroundColor3 = Color3.fromRGB(25,25,35)
+	toggle.BorderSizePixel = 0
+
+	toggle.Text = name .. " : OFF"
+	toggle.TextColor3 = Color3.fromRGB(255,255,255)
+	toggle.TextSize = 14
+	toggle.Font = Enum.Font.Gotham
+
+	toggle.Parent = main
+
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(0,255,255)
+	stroke.Thickness = 1
+	stroke.Parent = toggle
+
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0,5)
+	corner.Parent = toggle
+
+
+	toggle.MouseButton1Click:Connect(function()
+
+        enabled = not enabled
+
+        if name == "AUTOFARM" then
+        
+            running = enabled
+
+            if running then
+                print("AUTO START")
+                task.spawn(StartLoop)
+            else
+                print("AUTO STOP")
+            end
+        
         end
-    end
+
+        if name == "TOGGLE EVENT" then
+
+        	runningMusic = enabled
+
+        	if runningMusic then
+
+        		print("Music aktiviert")
+        		StartMusicLoop()
+
+        	else
+
+        		print("Music deaktiviert")
+
+        	end
+
+        end
+
+        if enabled then
+            toggle.Text = name .. " : ON"
+            toggle.BackgroundColor3 = Color3.fromRGB(0,120,120)
+
+        else
+           toggle.Text = name .. " : OFF"
+           toggle.BackgroundColor3 = Color3.fromRGB(25,25,35)
+
+        end
+
+    end)
+
+end
+
+
+-- Drei Buttons
+createToggle("AUTOFARM",45)
+createToggle("TOGGLE EVENT",80)
+createToggle("SELL CRAP",115)
+
+
+
+-- Verschieben
+title.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		
+		dragging = true
+		dragStart = input.Position
+		startPosition = main.Position
+
+	end
+
+end)
+
+title.InputChanged:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		
+		input.Changed:Connect(function()
+
+			if input.UserInputState == Enum.UserInputState.Change and dragging then
+				
+				local delta = input.Position - dragStart
+
+				main.Position = UDim2.new(
+					startPosition.X.Scale,
+					startPosition.X.Offset + delta.X,
+					startPosition.Y.Scale,
+					startPosition.Y.Offset + delta.Y
+				)
+
+			end
+
+		end)
+
+	end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		
+		dragging = false
+		
+	end
+
 end)
